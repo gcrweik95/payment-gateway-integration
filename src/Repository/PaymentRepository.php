@@ -15,35 +15,24 @@ class PaymentRepository
     }
 
     /**
-     * Store transaction data in Redis
+     * Store an operation (authorization, capture, refund) in Redis.
+     * @param string $operationKey Combined key format: "{operationType}_{operationId}"
+     * @param array<string, mixed> $data
      */
-    public function saveTransaction(string $transactionId, array $data, int $ttl = 3600): void
+    public function saveOperation(string $operationKey, array $data, int $ttl = 3600): void
     {
-        $this->redis->setex($transactionId, $ttl, json_encode($data));
+        $data['timestamp'] = time(); // Store timestamp for logging/debugging
+        $this->redis->setex($operationKey, $ttl, json_encode($data));
     }
 
     /**
-     * Retrieve transaction details from Redis
+     * Retrieve operation details from Redis.
+     * @param string $operationKey Combined key format: "{operationType}_{operationId}"
+     * @return array<string, mixed>|null
      */
-    public function getTransaction(string $transactionId): ?array
+    public function getOperation(string $operationKey): ?array
     {
-        $data = $this->redis->get($transactionId);
+        $data = $this->redis->get($operationKey);
         return $data ? json_decode($data, true) : null;
-    }
-
-    /**
-     * Check if a transaction already exists (for idempotency)
-     */
-    public function transactionExists(string $transactionId): bool
-    {
-        return $this->redis->exists($transactionId) > 0;
-    }
-
-    /**
-     * Delete a transaction record
-     */
-    public function deleteTransaction(string $transactionId): void
-    {
-        $this->redis->del($transactionId);
     }
 }
