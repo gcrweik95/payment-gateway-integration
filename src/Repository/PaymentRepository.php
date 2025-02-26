@@ -19,7 +19,7 @@ class PaymentRepository
      * @param string $operationKey Combined key format: "{operationType}_{operationId}"
      * @param array<string, mixed> $data
      */
-    public function saveOperation(string $operationKey, array $data, int $ttl = 3600): void
+    public function saveOperation(string $operationKey, array $data, int $ttl = 18000): void
     {
         $data['timestamp'] = time(); // Store timestamp for logging/debugging
         $this->redis->setex($operationKey, $ttl, json_encode($data));

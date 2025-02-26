@@ -16,7 +16,7 @@ class ProviderAService implements PaymentProviderInterface
             'status' => 'error',
             'provider' => 'ProviderA',
             'auth_token' => null,
-            'message' => 'Authorization failed',
+            'message' => 'Invalid card number for Provider A',
             'timestamp' => time()
         ];
 
