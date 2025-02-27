@@ -2,16 +2,20 @@
 
 namespace App\Repository;
 
+use Psr\Log\LoggerInterface;
 use Redis;
 
 class PaymentRepository
 {
     private Redis $redis;
+    private LoggerInterface $operationalLogger;
 
-    public function __construct()
-    {
+    public function __construct(
+        #[Autowire(service: 'monolog.logger.operational')] LoggerInterface $operationalLogger
+    ) {
         $this->redis = new Redis();
         $this->redis->connect($_ENV['REDIS_HOST'], 6379);
+        $this->operationalLogger = $operationalLogger;
     }
 
     /**
@@ -23,6 +27,8 @@ class PaymentRepository
     {
         $data['timestamp'] = time(); // Store timestamp for logging/debugging
         $this->redis->setex($operationKey, $ttl, json_encode($data));
+
+        $this->operationalLogger->info("Operation saved in Redis", ['operation_key' => $operationKey, 'data' => $data]);
     }
 
     /**
@@ -33,6 +39,12 @@ class PaymentRepository
     public function getOperation(string $operationKey): ?array
     {
         $data = $this->redis->get($operationKey);
-        return $data ? json_decode($data, true) : null;
+        if (!$data) {
+            $this->operationalLogger->warning("Operation not found in Redis", ['operation_key' => $operationKey]);
+            return null;
+        }
+
+        $this->operationalLogger->info("Operation retrieved from Redis", ['operation_key' => $operationKey]);
+        return json_decode($data, true);
     }
 }

@@ -23,20 +23,90 @@ class ValidationService
      */
     public function validatePaymentAuthorization(array $data): ConstraintViolationListInterface
     {
-        $constraints = new Assert\Collection([
-            'card_number' => [new Assert\NotBlank(), new Assert\Type('string')],
+        $constraints = new Assert\Collection(['card_number' => [
+                new Assert\NotBlank([
+                    'message' => 'Card number should not be blank.',
+                ]),
+                new Assert\NotNull([
+                    'message' => 'Card number should not be null.',
+                ]),
+                new Assert\Type([
+                    'type' => 'string',
+                    'message' => 'Card number must be a string.',
+                ]),
+                new Assert\Length([
+                    'min' => 13,
+                    'max' => 19,
+                    'minMessage' => 'Card number must be at least {{ limit }} characters long.',
+                    'maxMessage' => 'Card number cannot be longer than {{ limit }} characters.',
+                ]),
+                new Assert\Regex([
+                    'pattern' => '/^[0-9]+$/',
+                    'message' => 'Card number must contain only digits.',
+                ]),
+                new Assert\Regex([
+                    'pattern' => '/^(3|4|5|6)/',
+                    'message' => 'Card number must start with 3, 4, 5, or 6.',
+                ]),
+            ],
             'expiry_date' => [
-                new Assert\NotBlank(),
-                new Assert\Type('string'),
-                new Assert\Regex('/^(0[1-9]|1[0-2])\/\d{2}$/') // MM/YY format
+                new Assert\NotBlank([
+                    'message' => 'Expiry date should not be blank.',
+                ]),
+                new Assert\Type([
+                    'type' => 'string',
+                    'message' => 'Expiry date must be a string.',
+                ]),
+                new Assert\Regex([
+                    'pattern' => '/^(0[1-9]|1[0-2])\/\d{2}$/',
+                    'message' => 'Expiry date must be in the format MM/YY.',
+                ]),
+                new Assert\Callback(function ($object, $context) {
+                    $currentYear = (int) date('y');
+                    $currentMonth = (int) date('m');
+
+                    [$month, $year] = explode('/', $object);
+                    $month = (int) $month;
+                    $year = (int) $year;
+
+                    $expiryDate = \DateTime::createFromFormat('my', sprintf('%02d%02d', $month, $year));
+                    $currentDate = new \DateTime();
+                    $currentDate->modify('+6 months');
+
+                    if ($expiryDate < $currentDate) {
+                        $context->buildViolation('The expiry date must be at least 6 months in the future.')
+                            ->addViolation();
+                    }
+                })
             ],
             'cvv' => [
-                new Assert\NotBlank(),
-                new Assert\Type('string'),
-                new Assert\Length(['min' => 3, 'max' => 4]),
-                new Assert\Regex('/^\d{3,4}$/')
+                new Assert\NotBlank([
+                    'message' => 'CVV should not be blank.',
+                ]),
+                new Assert\Type([
+                    'type' => 'string',
+                    'message' => 'CVV must be a string.',
+                ]),
+                new Assert\Length([
+                    'min' => 3,
+                    'max' => 4,
+                    'minMessage' => 'CVV must be at least {{ limit }} characters long.',
+                    'maxMessage' => 'CVV cannot be longer than {{ limit }} characters.',
+                ]),
+                new Assert\Regex([
+                    'pattern' => '/^\d{3,4}$/',
+                    'message' => 'CVV must contain only digits and be 3 or 4 characters long.',
+                ]),
             ],
-            'amount' => [new Assert\NotBlank(), new Assert\Type('numeric')],
+            'amount' => [
+                new Assert\NotBlank([
+                    'message' => 'Amount should not be blank.',
+                ]),
+                new Assert\Type([
+                    'type' => 'numeric',
+                    'message' => 'Amount must be numeric.',
+                ]),
+            ],
         ]);
 
         return $this->validator->validate($data, $constraints);
@@ -50,9 +120,14 @@ class ValidationService
      */
     public function validatePaymentCapture(array $data): ConstraintViolationListInterface
     {
-        $constraints = new Assert\Collection([
-            'auth_token' => [new Assert\NotBlank(), new Assert\Type('string')],
-            'amount' => [new Assert\NotBlank(), new Assert\Type('numeric')],
+        $constraints = new Assert\Collection(['auth_token' => [
+                new Assert\NotBlank(['message' => 'Authorization token should not be blank.']),
+                new Assert\Type(['type' => 'string', 'message' => 'Authorization token must be a string.']),
+            ],
+            'amount' => [
+                new Assert\NotBlank(['message' => 'Amount should not be blank.']),
+                new Assert\Type(['type' => 'numeric', 'message' => 'Amount must be numeric.']),
+            ],
         ]);
 
         return $this->validator->validate($data, $constraints);
@@ -67,8 +142,14 @@ class ValidationService
     public function validatePaymentRefund(array $data): ConstraintViolationListInterface
     {
         $constraints = new Assert\Collection([
-            'transaction_id' => [new Assert\NotBlank(), new Assert\Type('string')],
-            'amount' => [new Assert\NotBlank(), new Assert\Type('numeric')],
+            'transaction_id' => [
+                new Assert\NotBlank(['message' => 'Transaction Id should not be blank.']),
+                new Assert\Type(['type' => 'string', 'message' => 'Transaction Id must be a string.']),
+            ],
+            'amount' => [
+                new Assert\NotBlank(['message' => 'Amount should not be blank.']),
+                new Assert\Type(['type' => 'numeric', 'message' => 'Amount must be numeric.']),
+            ],
         ]);
 
         return $this->validator->validate($data, $constraints);

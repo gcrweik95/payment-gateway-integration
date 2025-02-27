@@ -42,7 +42,7 @@ class ProviderBService implements PaymentProviderInterface
 
         // Simulating failure scenarios (10% chance of failure)
         if (rand(1, 10) === 1) {
-            $captureResponse['message'] = 'Insufficient funds';
+            $captureResponse['message'] = 'Capture system error, please try again later';
             return $captureResponse;
         }
 
@@ -74,21 +74,14 @@ class ProviderBService implements PaymentProviderInterface
             return $refundResponse;
         }
 
-        // Simulate real-world refund behavior with probabilities
-        $randomChance = mt_rand(1, 10);
-
-        if ($randomChance <= 8) {
-            // ✅ 80% Success Rate
-            $refundResponse['status'] = 'refunded';
-            $refundResponse['refund_id'] = 'rfb' . uniqid();
-            $refundResponse['message'] = 'Refund successful';
-        } elseif ($randomChance === 9) {
-            // ❌ 10% System Failure
-            $refundResponse['message'] = 'Refund system error, please try again later';
-        } else {
-            // ❌ 10% Exceeding Limits
-            $refundResponse['message'] = 'Refund amount exceeds provider limits';
+        // Simulating failure scenarios (10% chance of failure)
+        if (rand(1, 10) === 1) {
+            $refundResponse['message'] = 'Capture system error, please try again later';
         }
+
+        $refundResponse['status'] = 'refunded';
+        $refundResponse['refund_id'] = 'rfb' . uniqid();
+        $refundResponse['message'] = 'Refund successful';
 
         return $refundResponse;
     }

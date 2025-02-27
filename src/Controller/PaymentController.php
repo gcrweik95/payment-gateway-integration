@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Helper\ValidationService;
 use App\Service\Payment\PaymentService;
 use OpenApi\Attributes as OA;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,15 +13,20 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_MERCHANT')]
-final class PaymentController extends AbstractController
+class PaymentController extends AbstractController
 {
     private PaymentService $paymentService;
     private ValidationService $validationService;
+    private LoggerInterface $operationalLogger;
 
-    public function __construct(PaymentService $paymentService, ValidationService $validationService)
-    {
+    public function __construct(
+        #[Autowire(service: 'monolog.logger.operational')] LoggerInterface $operationalLogger,
+        PaymentService $paymentService,
+        ValidationService $validationService
+    ) {
         $this->paymentService = $paymentService;
         $this->validationService = $validationService;
+        $this->operationalLogger = $operationalLogger;
     }
 
     /**
@@ -39,21 +45,31 @@ final class PaymentController extends AbstractController
         string $successKey
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
+        $this->operationalLogger->info("Received API request", ['endpoint' => $request->getPathInfo(), 'data' => $data]);
 
         // Validate input using ValidationService
         $violations = $this->validationService->$validationMethod($data);
         if (count($violations) > 0) {
-            return $this->json(['status' => 'error', 'message' => 'Invalid request data'], 400);
+            $violationMessages = [];
+            foreach ($violations as $violation) {
+                $violationMessages[] = $violation->getMessage();
+            }
+
+            $this->operationalLogger->warning("Invalid request data", ['errors' => $violationMessages]);
+            return $this->json(['status' => 'error', 'message' => $violationMessages], 400);
         }
 
         try {
             $result = $paymentFunction($data);
 
+            $this->operationalLogger->info("Transaction successful", [$successKey => $result]);
             return $this->json([
                 'status' => 'success',
                 $successKey => $result
             ], 200);
         } catch (\Exception $e) {
+
+            $this->operationalLogger->error("Transaction failed", ['error' => $e->getMessage()]);
             return $this->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
@@ -102,7 +118,7 @@ final class PaymentController extends AbstractController
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'status', type: 'string', example: 'error'),
-                        new OA\Property(property: 'message', type: 'string', example: 'Invalid card number'),
+                        new OA\Property(property: 'message', type: 'array'),
                     ]
                 )
             ),
@@ -168,7 +184,7 @@ final class PaymentController extends AbstractController
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'status', type: 'string', example: 'error'),
-                        new OA\Property(property: 'message', type: 'string', example: 'Invalid card number'),
+                        new OA\Property(property: 'message', type: 'array'),
                     ]
                 )
             ),
@@ -234,7 +250,7 @@ final class PaymentController extends AbstractController
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'status', type: 'string', example: 'error'),
-                        new OA\Property(property: 'message', type: 'string', example: 'Invalid card number'),
+                        new OA\Property(property: 'message', type: 'array'),
                     ]
                 )
             ),

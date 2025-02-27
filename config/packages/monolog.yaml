@@ -1,6 +1,7 @@
 monolog:
     channels:
-        - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        # - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - operational # Custom channel for payment logs (API, transactions, Redis, security)
 
 when@dev:
     monolog:
@@ -10,18 +11,17 @@ when@dev:
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
                 channels: ["!event"]
-            # uncomment to get logging in your browser
-            # you may have to allow bigger header sizes in your Web server configuration
-            #firephp:
-            #    type: firephp
-            #    level: info
-            #chromephp:
-            #    type: chromephp
-            #    level: info
             console:
                 type: console
                 process_psr_3_messages: false
                 channels: ["!event", "!doctrine", "!console"]
+
+            # ✅ OPERATIONAL LOGGING FOR PAYMENTS
+            operational_log:
+                type: stream
+                path: "%kernel.logs_dir%/payment.log"
+                level: info  # Logs info, debug & error
+                channels: ["operational"] 
 
 when@test:
     monolog:
@@ -37,6 +37,13 @@ when@test:
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
 
+            # ✅ OPERATIONAL LOGGING FOR PAYMENTS IN TEST ENVIRONMENT
+            operational_log:
+                type: stream
+                path: "%kernel.logs_dir%/payment.log"
+                level: info
+                channels: ["operational"]
+
 when@prod:
     monolog:
         handlers:
@@ -45,7 +52,7 @@ when@prod:
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
-                buffer_size: 50 # How many messages should be saved? Prevent memory leaks
+                buffer_size: 50 # Prevents memory leaks
             nested:
                 type: stream
                 path: php://stderr
@@ -60,3 +67,10 @@ when@prod:
                 channels: [deprecation]
                 path: php://stderr
                 formatter: monolog.formatter.json
+
+            # ✅ OPERATIONAL LOGGING FOR PAYMENTS IN PRODUCTION
+            operational_log:
+                type: stream
+                path: "%kernel.logs_dir%/payment.log"
+                level: info
+                channels: ["operational"]

@@ -4,17 +4,25 @@ namespace App\Service\Payment;
 
 use App\Exception\PaymentException;
 use App\Repository\PaymentRepository;
+use App\Service\Provider\ProviderAService;
+use App\Service\Provider\ProviderBService;
 use App\Service\Provider\ProviderFactory;
+use Psr\Log\LoggerInterface;
 
 class PaymentService
 {
     private PaymentRepository $paymentRepository;
     private ProviderFactory $providerFactory;
+    private LoggerInterface $operationalLogger;
 
-    public function __construct(PaymentRepository $paymentRepository, ProviderFactory $providerFactory)
-    {
+    public function __construct(
+        PaymentRepository $paymentRepository,
+        ProviderFactory $providerFactory,
+        #[Autowire(service: 'monolog.logger.operational')] LoggerInterface $operationalLogger
+    ) {
         $this->paymentRepository = $paymentRepository;
         $this->providerFactory = $providerFactory;
+        $this->operationalLogger = $operationalLogger;
     }
 
 
@@ -32,13 +40,23 @@ class PaymentService
      */
     public function authorizePayment(array $paymentData): string
     {
+        $this->operationalLogger->info('Authorization request received', ['card_number' => substr($paymentData['card_number'], -4), 'amount' => $paymentData['amount']]);
+
         $provider = $this->providerFactory->createProvider();
+
+        // A provider switch logic based on a configuration setting
+        if ($_ENV['PROVIDER_SWITCH'] === 'true' && $provider instanceof ProviderAService && !str_starts_with($paymentData['card_number'], '4')) {
+            $this->operationalLogger->info('Authorization Change: Provider Switched', ['card_number' => substr($paymentData['card_number'], -4), 'switcher' => true, 'switch_from' => 'ProviderA', 'switch_to' => 'ProviderB']);
+            $provider = new ProviderBService();
+        }
 
         $authorizationResponse = $provider->authorize($paymentData);
 
         if ($authorizationResponse['status'] === 'authorized' && isset($authorizationResponse['auth_token'])) {
             $authToken = $authorizationResponse['auth_token'];
             $operationKey = "auth_{$authToken}";
+
+            $this->operationalLogger->info("Authorization successful", ['auth_token' => $authToken, 'provider' => $authorizationResponse['provider']]);
 
             $this->paymentRepository->saveOperation($operationKey, [
                 'provider' => $authorizationResponse['provider'],
@@ -52,6 +70,8 @@ class PaymentService
 
         // Process failure case
         $errorKey = "auth_error_" . uniqid();
+        $this->operationalLogger->error("Authorization failed", ['message' => $authorizationResponse['message'] ?? 'Unknown error']);
+
         $this->paymentRepository->saveOperation($errorKey, [
             'provider' => $authorizationResponse['provider'] ?? 'unknown',
             'amount' => $paymentData['amount'],
@@ -79,11 +99,14 @@ class PaymentService
     {
         $authToken = $authData['auth_token'];
 
+        $this->operationalLogger->info("Capture request received", ['auth_token' => $authToken, 'amount' => $authData['amount']]);
+
         // Idempotency check: Ensure capture is not already processed
         $captureLookup = $this->paymentRepository->getOperation("capture_lookup_{$authToken}");
         if ($captureLookup && isset($captureLookup['capture_key'])) {
             $captureOperation = $this->paymentRepository->getOperation($captureLookup['capture_key']);
             if ($captureOperation) {
+                $this->operationalLogger->debug("Capture already processed", ['transaction_id' => $captureOperation['transaction_id']]);
                 return $captureOperation['transaction_id'];
             }
         }
@@ -91,6 +114,8 @@ class PaymentService
         // Verify authorization exists
         $authOperation = $this->paymentRepository->getOperation("auth_{$authToken}");
         if (!$authOperation) {
+            $this->operationalLogger->error("Capture failed: Authorization not found for capture", ['auth_token' => $authToken]);
+
             $errorKey = "capture_error_" . uniqid();
             $this->paymentRepository->saveOperation($errorKey, [
                 'provider' => 'unknown',
@@ -111,6 +136,8 @@ class PaymentService
             $transaction_id = $captureResponse['transaction_id'];
             $operationKey = "capture_{$transaction_id}";
 
+            $this->operationalLogger->info("Capture successful", ['transaction_id' => $transaction_id, 'provider' => $captureResponse['provider']]);
+
             $this->paymentRepository->saveOperation($operationKey, [
                 'provider' => $captureResponse['provider'],
                 'amount' => $authData['amount'],
@@ -129,6 +156,8 @@ class PaymentService
 
         // Process failure case
         $errorKey = "capture_error_" . uniqid();
+        $this->operationalLogger->error("Capture failed", ['message' => $captureResponse['message'] ?? 'Unknown error']);
+
         $this->paymentRepository->saveOperation($errorKey, [
             'provider' => $captureResponse['provider'] ?? 'unknown',
             'amount' => $authData['amount'],
@@ -156,11 +185,14 @@ class PaymentService
     {
         $transactionId = $transactionData['transaction_id'];
 
+        $this->operationalLogger->info("Refund request received", ['transaction_id' => $transactionId, 'amount' => $transactionData['amount']]);
+
         // Idempotency check: Ensure refund is not already processed
         $refundLookup = $this->paymentRepository->getOperation("refund_lookup_{$transactionId}");
         if ($refundLookup && isset($refundLookup['refund_key'])) {
             $refundOperation = $this->paymentRepository->getOperation($refundLookup['refund_key']);
             if ($refundOperation) {
+                $this->operationalLogger->debug("Refund already processed", ['refund_id' => $refundOperation['refund_id']]);
                 return $refundOperation['refund_id'];
             }
         }
@@ -169,6 +201,8 @@ class PaymentService
         $captureOperation = $this->paymentRepository->getOperation("capture_{$transactionId}");
         if (!$captureOperation) {
             $errorKey = "refund_error_" . uniqid();
+            $this->operationalLogger->error("Refund failed: Capture not found for refund", ['transaction_id' => $transactionId]);
+
             $this->paymentRepository->saveOperation($errorKey, [
                 'provider' => 'unknown',
                 'amount' => $transactionData['amount'],
@@ -188,6 +222,8 @@ class PaymentService
             $refund_id = $refundResponse['refund_id'];
             $operationKey = "refund_{$refund_id}";
 
+            $this->operationalLogger->info("Refund successful", ['refund_id' => $refund_id, 'provider' => $refundResponse['provider']]);
+
             $this->paymentRepository->saveOperation($operationKey, [
                 'provider' => $refundResponse['provider'],
                 'amount' => $transactionData['amount'],
@@ -205,14 +241,16 @@ class PaymentService
         }
 
         // Process failure case
-        $errorKey = "capture_error_" . uniqid();
+        $errorKey = "refund_error_" . uniqid();
+        $this->operationalLogger->error("Refund failed", ['message' => $refundResponse['message'] ?? 'Unknown error']);
+
         $this->paymentRepository->saveOperation($errorKey, [
             'provider' => $refundResponse['provider'] ?? 'unknown',
             'amount' => $transactionData['amount'],
-            'message' => $refundResponse['message'] ?? 'Capture failed',
+            'message' => $refundResponse['message'] ?? 'Refund failed',
             'timestamp' => $refundResponse['timestamp'] ?? time(),
         ]);
 
-        throw new PaymentException('Payment capture failed: ' . ($refundResponse['message'] ?? 'Unknown error'));
+        throw new PaymentException('Payment refund failed: ' . ($refundResponse['message'] ?? 'Unknown error'));
     }
 }
