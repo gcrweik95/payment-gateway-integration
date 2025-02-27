@@ -21,10 +21,13 @@ This service provides a **merchant API** to handle **authorization, capture, and
   - [📌 Table of contents:](#-table-of-contents)
   - [📌 **1. Installation \& Setup**](#-1-installation--setup)
     - [**🔹 Prerequisites**](#-prerequisites)
-    - [**🔹 Clone the Repository**](#-clone-the-repository)
-    - [**🔹 Setup and Run the Project**](#-setup-and-run-the-project)
+    - [**1️⃣ Clone the Repository**](#1️⃣-clone-the-repository)
+    - [**2️⃣ Build \& Start Services with Docker**](#2️⃣-build--start-services-with-docker)
+    - [**3️⃣ Install the needed libraries \& clear cache**](#3️⃣-install-the-needed-libraries--clear-cache)
+    - [**4️⃣ Run Tests**](#4️⃣-run-tests)
+    - [**5️⃣ Run PHPStan Analysis**](#5️⃣-run-phpstan-analysis)
   - [📌 2. API Endpoints](#-2-api-endpoints)
-      - [**API Docs**](#api-docs)
+      - [**OpenAPI (Swagger)**](#openapi-swagger)
       - [**Postman Pre-configured Collection**](#postman-pre-configured-collection)
       - [**Authentication**](#authentication)
       - [**Descriptions**](#descriptions)
@@ -58,25 +61,39 @@ Before starting, ensure you have:
 - PHP **8.2+** installed (for local development) ✅
 - Composer installed ✅
 
-### **🔹 Clone the Repository**
+### **1️⃣ Clone the Repository**
 ```bash
-git clone https://github.com/YOUR-REPO/payment-gateway.git
+git clone https://github.com/your-repo/payment-gateway.git
 cd payment-gateway
 ```
 
-### **🔹 Setup and Run the Project**
-You can set the project up using two installation methods:
-
+### **2️⃣ Build & Start Services with Docker**
 ```bash
 docker-compose up -d --build
 docker exec -it payment_gateway_app bash
+```
+
+### **3️⃣ Install the needed libraries & clear cache**
+```bash
 composer install
 php bin/console c:c
 ```
 
+### **4️⃣ Run Tests**
+```bash
+vendor/bin/phpunit --testdox
+```
+
+### **5️⃣ Run PHPStan Analysis**
+```bash
+vendor/bin/phpstan analyse
+```
+
+_And you're ready to go!_
+
 ## 📌 2. API Endpoints
 
-#### **API Docs**
+#### **OpenAPI (Swagger)**
 You can access the API Documentation page with this URL:
 ```bash
 http://localhost:8000/api/doc
