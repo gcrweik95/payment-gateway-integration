@@ -12,9 +12,8 @@ class ApiAuthenticationEntryPoint implements AuthenticationEntryPointInterface
 {
     private LoggerInterface $operationalLogger;
 
-    public function __construct(
-        #[Autowire(service: 'monolog.logger.operational')] LoggerInterface $operationalLogger
-    ) {
+    public function __construct(LoggerInterface $operationalLogger)
+    {
         $this->operationalLogger = $operationalLogger;
     }
 

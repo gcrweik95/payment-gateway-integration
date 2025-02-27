@@ -2,6 +2,8 @@
 
 namespace App\Service\Provider;
 
+use App\Exception\ProviderFailureException;
+
 class ProviderBService implements PaymentProviderInterface
 {
 

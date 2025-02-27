@@ -10,12 +10,13 @@ class PaymentRepository
     private Redis $redis;
     private LoggerInterface $operationalLogger;
 
-    public function __construct(
-        #[Autowire(service: 'monolog.logger.operational')] LoggerInterface $operationalLogger
-    ) {
+
+    public function __construct(LoggerInterface $operationalLogger)
+    {
         $this->redis = new Redis();
         $this->redis->connect($_ENV['REDIS_HOST'], 6379);
         $this->operationalLogger = $operationalLogger;
+        
     }
 
     /**

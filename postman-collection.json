@@ -21,9 +21,9 @@
 					}
 				],
 				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"card_number\": \"4111111111111111\",\n    \"expiry_date\": \"12/24\",\n    \"cvv\": \"123\",\n    \"amount\": 10000\n}"
-				},
+          "mode": "raw",
+          "raw": "{\n    \"card_number\": \"4111111111111111\",\n    \"expiry_date\": \"03/25\",\n    \"cvv\": \"123\",\n    \"amount\": 10000\n}"
+        },
 				"url": {
 					"raw": "{{base_url}}/authorize",
 					"host": [

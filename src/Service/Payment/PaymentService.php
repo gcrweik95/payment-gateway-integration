@@ -18,7 +18,7 @@ class PaymentService
     public function __construct(
         PaymentRepository $paymentRepository,
         ProviderFactory $providerFactory,
-        #[Autowire(service: 'monolog.logger.operational')] LoggerInterface $operationalLogger
+        LoggerInterface $operationalLogger
     ) {
         $this->paymentRepository = $paymentRepository;
         $this->providerFactory = $providerFactory;
