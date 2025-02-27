@@ -37,7 +37,7 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
             throw new CustomUserMessageAuthenticationException('No API token provided');
         }
         // Extract API Key from Authorization header
-        $apiKey = str_replace('Bearer ', '', $request->headers->get('Authorization', ''));
+        $apiKey = str_replace('Bearer ', '', $apiToken);
 
         // Compare with the secret key stored in .env
         if ($apiKey !== $_ENV['API_SECRET_KEY']) {
