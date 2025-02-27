@@ -2,6 +2,8 @@
 
 namespace App\Controller;
 
+use App\Exception\PaymentException;
+use App\Exception\InvalidPaymentException;
 use App\Helper\ValidationService;
 use App\Service\Payment\PaymentService;
 use OpenApi\Attributes as OA;
@@ -38,6 +40,45 @@ class PaymentController extends AbstractController
      * @param string $successKey The key to use for the success response.
      * @return JsonResponse The response.
      */
+    // private function handlePaymentRequest(
+    //     Request $request,
+    //     callable $paymentFunction,
+    //     string $validationMethod,
+    //     string $successKey
+    // ): JsonResponse {
+    //     $data = json_decode($request->getContent(), true);
+    //     $this->operationalLogger->info("Received API request", ['endpoint' => $request->getPathInfo(), 'data' => $data]);
+
+    //     // Validate input using ValidationService
+    //     $violations = $this->validationService->$validationMethod($data);
+    //     if (count($violations) > 0) {
+    //         $violationMessages = [];
+    //         foreach ($violations as $violation) {
+    //             $violationMessages[] = $violation->getMessage();
+    //         }
+
+    //         $this->operationalLogger->warning("Invalid request data", ['errors' => $violationMessages]);
+    //         return $this->json(['status' => 'error', 'message' => $violationMessages], 400);
+    //     }
+
+    //     try {
+    //         $result = $paymentFunction($data);
+
+    //         $this->operationalLogger->info("Transaction successful", [$successKey => $result]);
+    //         return $this->json([
+    //             'status' => 'success',
+    //             $successKey => $result
+    //         ], 200);
+    //     } catch (PaymentException $e) {
+
+    //         $this->operationalLogger->error("Transaction failed", ['error' => $e->getMessage()]);
+    //         return $this->json([
+    //             'status' => 'error',
+    //             'message' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     private function handlePaymentRequest(
         Request $request,
         callable $paymentFunction,
@@ -45,37 +86,46 @@ class PaymentController extends AbstractController
         string $successKey
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
-        $this->operationalLogger->info("Received API request", ['endpoint' => $request->getPathInfo(), 'data' => $data]);
-
-        // Validate input using ValidationService
-        $violations = $this->validationService->$validationMethod($data);
-        if (count($violations) > 0) {
-            $violationMessages = [];
-            foreach ($violations as $violation) {
-                $violationMessages[] = $violation->getMessage();
-            }
-
-            $this->operationalLogger->warning("Invalid request data", ['errors' => $violationMessages]);
-            return $this->json(['status' => 'error', 'message' => $violationMessages], 400);
-        }
+        $this->operationalLogger->info("Received API request", [
+            'endpoint' => $request->getPathInfo(),
+            'data' => $data
+        ]);
 
         try {
-            $result = $paymentFunction($data);
+            // Validate input using ValidationService
+            $this->validationService->$validationMethod($data);
 
+            $result = $paymentFunction($data);
+    
             $this->operationalLogger->info("Transaction successful", [$successKey => $result]);
             return $this->json([
                 'status' => 'success',
                 $successKey => $result
             ], 200);
-        } catch (\Exception $e) {
-
+        } catch (InvalidPaymentException $e) {
+            // Handle validation errors that should result in 400 Bad Request
+            $this->operationalLogger->warning("Invalid Payment Request", ['error' => $e->getMessage()]);
+            return $this->json([
+                'status' => 'error',
+                'message' => explode(', ', $e->getMessage())
+            ], 400);
+        } catch (PaymentException $e) {
+            // Handle all other payment-related failures
             $this->operationalLogger->error("Transaction failed", ['error' => $e->getMessage()]);
+            return $this->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        } catch (\Exception $e) {
+            // Catch any unexpected exceptions
+            $this->operationalLogger->critical("Unexpected error occurred", ['error' => $e->getMessage()]);
             return $this->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
             ], 500);
         }
     }
+    
 
 
     /**

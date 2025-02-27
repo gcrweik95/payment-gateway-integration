@@ -2,6 +2,8 @@
 
 namespace App\Service\Provider;
 
+use App\Exception\ProviderFailureException;
+
 class ProviderAService implements PaymentProviderInterface
 {
     /**
@@ -9,24 +11,21 @@ class ProviderAService implements PaymentProviderInterface
      * 
      * @param array<string, mixed> $paymentData
      * @return array<string, mixed>
+     * @throws ProviderFailureException If authorization fails.
      */
     public function authorize(array $paymentData): array
     {
-        $authResponse = [
-            'status' => 'error',
-            'provider' => 'ProviderA',
-            'auth_token' => null,
-            'message' => 'Invalid card number for Provider A',
-            'timestamp' => time()
-        ];
-
-        if (str_starts_with($paymentData['card_number'], '4')) {
-            $authResponse['status'] = 'authorized';
-            $authResponse['auth_token'] = 'pa' . uniqid();
-            $authResponse['message'] = null;
+        if (!str_starts_with($paymentData['card_number'], '4')) {
+            throw new ProviderFailureException("Authorization failed: Invalid card number for Provider A");
         }
 
-        return $authResponse;
+        return [
+            'status' => 'authorized',
+            'provider' => 'ProviderA',
+            'auth_token' => 'pa' . uniqid(),
+            'message' => null,
+            'timestamp' => time()
+        ];
     }
 
 
@@ -35,32 +34,26 @@ class ProviderAService implements PaymentProviderInterface
      * 
      * @param array<string, mixed> $authData
      * @return array<string, mixed>
+     * @throws ProviderFailureException If capture fails.
      */
     public function capture(array $authData): array
     {
-        $captureResponse = [
-            'status' => 'failed',
-            'provider' => 'ProviderA',
-            'message' => 'Missing authorization token for capture',
-            'transaction_id' => null,
-            'timestamp' => time()
-        ];
-
         if (!isset($authData['auth_token'])) {
-            return $captureResponse;
+            throw new ProviderFailureException("Capture failed: Missing authorization token.");
         }
 
         // Simulating failure scenarios (10% chance of failure)
         if (rand(1, 10) === 1) {
-            $captureResponse['message'] = 'Capture system error, please try again later';
-            return $captureResponse;
+            throw new ProviderFailureException("Capture system error, please try again later.");
         }
 
-        $captureResponse['status'] = 'captured';
-        $captureResponse['transaction_id'] = 'txa' . uniqid();
-        $captureResponse['message'] = null;
-
-        return $captureResponse;
+        return [
+            'status' => 'captured',
+            'provider' => 'ProviderA',
+            'transaction_id' => 'txa' . uniqid(),
+            'message' => null,
+            'timestamp' => time()
+        ];
     }
 
     /**
@@ -68,31 +61,25 @@ class ProviderAService implements PaymentProviderInterface
      * 
      * @param array<string, mixed> $transactionData
      * @return array<string, mixed>
+     * @throws ProviderFailureException If refund fails.
      */
     public function refund(array $transactionData): array
     {
-        $refundResponse = [
-            'status' => 'failed',
-            'provider' => 'ProviderB',
-            'refund_id' => null,
-            'message' => 'Refund failed due to an unknown issue',
-            'timestamp' => time()
-        ];
-
         if (!isset($transactionData['transaction_id'])) {
-            $refundResponse['message'] = 'Invalid transaction ID for refund';
-            return $refundResponse;
+            throw new ProviderFailureException("Refund failed: Invalid transaction ID.");
         }
 
         // Simulating failure scenarios (10% chance of failure)
         if (rand(1, 10) === 1) {
-            $refundResponse['message'] = 'Capture system error, please try again later';
+            throw new ProviderFailureException("Refund system error, please try again later.");
         }
 
-        $refundResponse['status'] = 'refunded';
-        $refundResponse['refund_id'] = 'rfb' . uniqid();
-        $refundResponse['message'] = 'Refund successful';
-
-        return $refundResponse;
+        return [
+            'status' => 'refunded',
+            'provider' => 'ProviderA',
+            'refund_id' => 'rfa' . uniqid(),
+            'message' => 'Refund successful',
+            'timestamp' => time()
+        ];
     }
 }

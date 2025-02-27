@@ -2,6 +2,7 @@
 
 namespace App\Tests\Service;
 
+use App\Exception\InvalidPaymentException;
 use App\Exception\PaymentException;
 use App\Helper\ValidationService;
 use App\Repository\PaymentRepository;
@@ -228,12 +229,11 @@ class AuthorizationTest extends TestCase
         ];
 
         foreach ($invalidPayments as $testCase => $paymentData) {
-            $violations = $validationService->validatePaymentAuthorization($paymentData);
-
-            $this->assertGreaterThan(0, count($violations), "Expected validation failure for case: {$testCase}");
-
-            foreach ($violations as $violation) {
-                $this->assertNotEmpty($violation->getMessage(), "Validation message should not be empty for case: {$testCase}");
+            try {
+                $validationService->validatePaymentAuthorization($paymentData);
+                $this->fail("Expected InvalidPaymentException for case: {$testCase}");
+            } catch (InvalidPaymentException $e) {
+                $this->assertNotEmpty($e->getMessage(), "Validation message should not be empty for case: {$testCase}");
             }
         }
     }

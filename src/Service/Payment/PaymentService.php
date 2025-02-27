@@ -50,36 +50,43 @@ class PaymentService
             $provider = new ProviderBService();
         }
 
-        $authorizationResponse = $provider->authorize($paymentData);
+        try {
+            // Authorize the payment
+            $authorizationResponse = $provider->authorize($paymentData);
 
-        if ($authorizationResponse['status'] === 'authorized' && isset($authorizationResponse['auth_token'])) {
-            $authToken = $authorizationResponse['auth_token'];
-            $operationKey = "auth_{$authToken}";
+            if (
+                $authorizationResponse['status'] === 'authorized' && isset($authorizationResponse['auth_token'])
+            ) {
+                $authToken = $authorizationResponse['auth_token'];
+                $operationKey = "auth_{$authToken}";
 
-            $this->operationalLogger->info("Authorization successful", ['auth_token' => $authToken, 'provider' => $authorizationResponse['provider']]);
+                $this->operationalLogger->info("Authorization successful", ['auth_token' => $authToken, 'provider' => $authorizationResponse['provider']]);
 
-            $this->paymentRepository->saveOperation($operationKey, [
-                'provider' => $authorizationResponse['provider'],
+                $this->paymentRepository->saveOperation($operationKey, [
+                    'provider' => $authorizationResponse['provider'],
+                    'amount' => $paymentData['amount'],
+                    'message' => $authorizationResponse['status'],
+                    'timestamp' => $authorizationResponse['timestamp'],
+                ]);
+
+                return $authToken;
+            }
+
+            throw new PaymentException('Payment authorization failed: ' . ($authorizationResponse['message'] ?? 'Unknown error'));
+        } catch (PaymentException $e) {
+            $errorKey = "auth_error_" . uniqid();
+
+            $this->operationalLogger->error("Authorization failed", ['message' => $e->getMessage()]);
+
+            $this->paymentRepository->saveOperation($errorKey, [
+                'provider' => $provider::class,
                 'amount' => $paymentData['amount'],
-                'message' => $authorizationResponse['status'],
-                'timestamp' => $authorizationResponse['timestamp'],
+                'message' => $e->getMessage(),
+                'timestamp' => time(),
             ]);
 
-            return $authToken;
+            throw new PaymentException('Payment authorization failed: ' . $e->getMessage());
         }
-
-        // Process failure case
-        $errorKey = "auth_error_" . uniqid();
-        $this->operationalLogger->error("Authorization failed", ['message' => $authorizationResponse['message'] ?? 'Unknown error']);
-
-        $this->paymentRepository->saveOperation($errorKey, [
-            'provider' => $authorizationResponse['provider'] ?? 'unknown',
-            'amount' => $paymentData['amount'],
-            'message' => $authorizationResponse['message'] ?? 'Authorization failed',
-            'timestamp' => $authorizationResponse['timestamp'],
-        ]);
-
-        throw new PaymentException('Payment authorization failed: ' . ($authorizationResponse['message'] ?? 'Unknown error'));
     }
 
 
@@ -129,43 +136,50 @@ class PaymentService
         // Retrieve provider from stored auth operation
         $provider = $this->providerFactory->getOperationProvider($authOperation['provider']);
 
-        // Capture the payment
-        $captureResponse = $provider->capture($authData);
+        try {
+            // Capture the payment
+            $captureResponse = $provider->capture($authData);
 
-        if ($captureResponse['status'] === 'captured' && isset($captureResponse['transaction_id'])) {
-            $transaction_id = $captureResponse['transaction_id'];
-            $operationKey = "capture_{$transaction_id}";
+            if (
+                $captureResponse['status'] === 'captured' && isset($captureResponse['transaction_id'])
+            ) {
+                $transaction_id = $captureResponse['transaction_id'];
+                $operationKey = "capture_{$transaction_id}";
 
-            $this->operationalLogger->info("Capture successful", ['transaction_id' => $transaction_id, 'provider' => $captureResponse['provider']]);
+                $this->operationalLogger->info("Capture successful", ['transaction_id' => $transaction_id, 'provider' => $captureResponse['provider']]);
 
-            $this->paymentRepository->saveOperation($operationKey, [
-                'provider' => $captureResponse['provider'],
+                $this->paymentRepository->saveOperation($operationKey, [
+                    'provider' => $captureResponse['provider'],
+                    'amount' => $authData['amount'],
+                    'transaction_id' => $transaction_id,
+                    'auth_token' => $authToken,
+                    'message' => 'Captured successfully',
+                    'timestamp' => $captureResponse['timestamp'] ?? time(),
+                ]);
+
+                $this->paymentRepository->saveOperation("capture_lookup_{$authToken}", [
+                    'capture_key' => "capture_{$transaction_id}"
+                ]);
+
+                return $transaction_id;
+            }
+
+            throw new PaymentException('Payment capture failed: ' . ($captureResponse['message'] ?? 'Unknown error'));
+        } catch (PaymentException $e) {
+
+            // Process failure case
+            $errorKey = "capture_error_" . uniqid();
+            $this->operationalLogger->error("Capture failed", ['message' => $captureResponse['message'] ?? 'Unknown error']);
+
+            $this->paymentRepository->saveOperation($errorKey, [
+                'provider' => $provider::class,
                 'amount' => $authData['amount'],
-                'transaction_id' => $transaction_id,
-                'auth_token' => $authToken,
-                'message' => 'Captured successfully',
-                'timestamp' => $captureResponse['timestamp'] ?? time(),
+                'message' => $e->getMessage(),
+                'timestamp' => time(),
             ]);
 
-            $this->paymentRepository->saveOperation("capture_lookup_{$authToken}", [
-                'capture_key' => "capture_{$transaction_id}"
-            ]);
-
-            return $transaction_id;
+            throw new PaymentException('Payment capture failed: ' . $e->getMessage());
         }
-
-        // Process failure case
-        $errorKey = "capture_error_" . uniqid();
-        $this->operationalLogger->error("Capture failed", ['message' => $captureResponse['message'] ?? 'Unknown error']);
-
-        $this->paymentRepository->saveOperation($errorKey, [
-            'provider' => $captureResponse['provider'] ?? 'unknown',
-            'amount' => $authData['amount'],
-            'message' => $captureResponse['message'] ?? 'Capture failed',
-            'timestamp' => $captureResponse['timestamp'] ?? time(),
-        ]);
-
-        throw new PaymentException('Payment capture failed: ' . ($captureResponse['message'] ?? 'Unknown error'));
     }
 
 
@@ -215,6 +229,7 @@ class PaymentService
         // Retrieve provider from stored capture operation
         $provider = $this->providerFactory->getOperationProvider($captureOperation['provider']);
 
+        try {
         // Capture the payment
         $refundResponse = $provider->refund($transactionData);
 
@@ -240,17 +255,20 @@ class PaymentService
             return $refund_id;
         }
 
-        // Process failure case
-        $errorKey = "refund_error_" . uniqid();
-        $this->operationalLogger->error("Refund failed", ['message' => $refundResponse['message'] ?? 'Unknown error']);
+            throw new PaymentException('Payment refund failed: ' . ($refundResponse['message'] ?? 'Unknown error'));
+        } catch (PaymentException $e) {
+            // Process failure case
+            $errorKey = "refund_error_" . uniqid();
+            $this->operationalLogger->error("Refund failed", ['message' => $refundResponse['message'] ?? 'Unknown error']);
 
-        $this->paymentRepository->saveOperation($errorKey, [
-            'provider' => $refundResponse['provider'] ?? 'unknown',
-            'amount' => $transactionData['amount'],
-            'message' => $refundResponse['message'] ?? 'Refund failed',
-            'timestamp' => $refundResponse['timestamp'] ?? time(),
-        ]);
+            $this->paymentRepository->saveOperation($errorKey, [
+                'provider' => $provider::class,
+                'amount' => $transactionData['amount'],
+                'message' => $e->getMessage(),
+                'timestamp' => time(),
+            ]);
 
-        throw new PaymentException('Payment refund failed: ' . ($refundResponse['message'] ?? 'Unknown error'));
+            throw new PaymentException('Payment refund failed: ' . $e->getMessage());
+        }
     }
 }

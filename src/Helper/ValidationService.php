@@ -5,6 +5,7 @@ namespace App\Helper;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
+use App\Exception\InvalidPaymentException;
 
 class ValidationService
 {
@@ -21,7 +22,7 @@ class ValidationService
      * @param array<string, mixed> $data
      * @return ConstraintViolationListInterface
      */
-    public function validatePaymentAuthorization(array $data): ConstraintViolationListInterface
+    public function validatePaymentAuthorization(array $data): void
     {
         $constraints = new Assert\Collection(['card_number' => [
                 new Assert\NotBlank([
@@ -46,7 +47,7 @@ class ValidationService
                 ]),
                 new Assert\Regex([
                     'pattern' => '/^(3|4|5|6)/',
-                    'message' => 'Card number must start with 3, 4, 5, or 6.',
+                    'message' => 'Card number must start with 3 4 5 or 6.',
                 ]),
             ],
             'expiry_date' => [
@@ -109,7 +110,15 @@ class ValidationService
             ],
         ]);
 
-        return $this->validator->validate($data, $constraints);
+        $violations = $this->validator->validate($data, $constraints);
+        if (count($violations) > 0) {
+            $violationMessages = [];
+            foreach ($violations as $violation) {
+                $violationMessages[] = $violation->getMessage();
+            }
+
+            throw new InvalidPaymentException(implode(', ', $violationMessages));
+        }
     }
 
     /**
@@ -118,7 +127,7 @@ class ValidationService
      * @param array<string, mixed> $data
      * @return ConstraintViolationListInterface
      */
-    public function validatePaymentCapture(array $data): ConstraintViolationListInterface
+    public function validatePaymentCapture(array $data): void
     {
         $constraints = new Assert\Collection(['auth_token' => [
                 new Assert\NotBlank(['message' => 'Authorization token should not be blank.']),
@@ -130,7 +139,15 @@ class ValidationService
             ],
         ]);
 
-        return $this->validator->validate($data, $constraints);
+        $violations = $this->validator->validate($data, $constraints);
+        if (count($violations) > 0) {
+            $violationMessages = [];
+            foreach ($violations as $violation) {
+                $violationMessages[] = $violation->getMessage();
+            }
+
+            throw new InvalidPaymentException(implode(', ', $violationMessages));
+        }
     }
 
     /**
@@ -139,7 +156,7 @@ class ValidationService
      * @param array<string, mixed> $data
      * @return ConstraintViolationListInterface
      */
-    public function validatePaymentRefund(array $data): ConstraintViolationListInterface
+    public function validatePaymentRefund(array $data): void
     {
         $constraints = new Assert\Collection([
             'transaction_id' => [
@@ -152,6 +169,14 @@ class ValidationService
             ],
         ]);
 
-        return $this->validator->validate($data, $constraints);
+        $violations = $this->validator->validate($data, $constraints);
+        if (count($violations) > 0) {
+            $violationMessages = [];
+            foreach ($violations as $violation) {
+                $violationMessages[] = $violation->getMessage();
+            }
+
+            throw new InvalidPaymentException(implode(', ', $violationMessages));
+        }
     }
 }

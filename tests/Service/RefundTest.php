@@ -2,6 +2,7 @@
 
 namespace App\Tests\Service;
 
+use App\Exception\InvalidPaymentException;
 use App\Exception\PaymentException;
 use App\Helper\ValidationService;
 use App\Repository\PaymentRepository;
@@ -279,10 +280,13 @@ class RefundTest extends TestCase
                 'expectedErrors' => 1
             ],
         ];
-
         foreach ($testCases as $caseName => $case) {
-            $violations = $validationService->validatePaymentRefund($case['input']);
-            $this->assertGreaterThan(0, count($violations), "Expected validation failure for case: $caseName");
+            try {
+                $validationService->validatePaymentCapture($case['input']);
+                $this->fail("Expected InvalidPaymentException for case: {$caseName}");
+            } catch (InvalidPaymentException $e) {
+                $this->assertNotEmpty($e->getMessage(), "Validation message should not be empty for case: {$caseName}");
+            }
         }
     }
 

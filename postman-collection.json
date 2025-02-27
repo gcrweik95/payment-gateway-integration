@@ -1,80 +1,135 @@
 {
-    "info": {
-        "name": "Payment Gateway API",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-    },
-    "item": [
-        {
-            "name": "Authorize Payment",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {"key": "Content-Type", "value": "application/json"},
-                    {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
-                ],
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"card_number\": \"4111111111111111\",\n    \"expiry_date\": \"12/24\",\n    \"cvv\": \"123\",\n    \"amount\": 10000\n}"
-                },
-                "url": {
-                    "raw": "{{base_url}}/authorize",
-                    "host": ["{{base_url}}"],
-                    "path": ["authorize"]
-                }
-            },
-            "response": []
-        },
-        {
-            "name": "Capture Payment",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {"key": "Content-Type", "value": "application/json"},
-                    {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
-                ],
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"auth_token\": \"{{auth_token}}\",\n    \"amount\": 10000\n}"
-                },
-                "url": {
-                    "raw": "{{base_url}}/capture",
-                    "host": ["{{base_url}}"],
-                    "path": ["capture"]
-                }
-            },
-            "response": []
-        },
-        {
-            "name": "Refund Payment",
-            "request": {
-                "method": "POST",
-                "header": [
-                    {"key": "Content-Type", "value": "application/json"},
-                    {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
-                ],
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"transaction_id\": \"{{transaction_id}}\",\n    \"amount\": 10000\n}"
-                },
-                "url": {
-                    "raw": "{{base_url}}/refund",
-                    "host": ["{{base_url}}"],
-                    "path": ["refund"]
-                }
-            },
-            "response": []
-        }
-    ],
-    "variable": [
-        {
-            "key": "base_url",
-            "value": "http://localhost:8000/api/payment",
-            "type": "string"
-        },
-        {
-            "key": "jwt_token",
-            "value": "<YOUR_JWT_TOKEN_HERE>",
-            "type": "string"
-        }
-    ]
+	"info": {
+		"_postman_id": "7a30e85e-4b74-4f42-9c7b-74ee67827c0d",
+		"name": "Payment Gateway API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "7044509"
+	},
+	"item": [
+		{
+			"name": "Authorize Payment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{merchant_api_key}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"card_number\": \"4111111111111111\",\n    \"expiry_date\": \"12/24\",\n    \"cvv\": \"123\",\n    \"amount\": 10000\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/authorize",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"authorize"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Capture Payment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{merchant_api_key}}",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"auth_token\": \"{{auth_token}}\",\n    \"amount\": 10000\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/capture",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"capture"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Refund Payment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{merchant_api_key}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"transaction_id\": \"{{transaction_id}}\",\n    \"amount\": 10000\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/refund",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"refund"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000/api/payment",
+			"type": "string"
+		},
+		{
+			"key": "merchant_api_key",
+			"value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpYXQiOjE3NDA1OTA1NDYsImV4cCI6MTc0MDU5NDE0Niwicm9sZXMiOlsiUk9MRV9NRVJDSEFOVCJdLCJ1c2VybmFtZSI6IlZlc3RpYWlyZSBDb2xsZWN0aXZlIn0.JqJY9RFyVQtBzSf_gBEd2s-m_Pm3zAi64M4VciR0JvxhbwKm_N0BO9VetwuS-Bo0pM4PoG5mPpiduK7faYoSo6RezYQ99wPSUz-6Br8DpOHU_17QbrEVvaoL7VkThnN0VdVxKvLdyv2ityeuxpxXwu9inxqM7JwVcP2b-8wasBH5MVJKm4hLTOIo4ti6Iys5DbeCUEjmFnS36i8s-Tub-MYl2BNkruBgdMV0_DM9R9n3mBflrfbNRmCie2HktbbIdtiGosI22aH5OAXgYDvJk0jgnINkBBOhFH2jGhEDyPlJjR-ISoIHKsCWeOXNU88V091W5g49TUWw2ew0K4s_Lg",
+			"type": "string"
+		}
+	]
 }
